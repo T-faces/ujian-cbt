@@ -74,7 +74,7 @@ class Login extends CI_Controller
         );
 
         if ($hak === 'guru') {
-            $data['mapel'] = isset($record['mapel']) ? $record['mapel'] : '';
+            $data['mapel'] = isset($record['nama_mapel']) ? $record['nama_mapel'] : '';
         }
 
         $this->session->set_userdata($data);
