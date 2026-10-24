@@ -13,10 +13,10 @@ class M_Admin extends CI_Model{
         return $this->db->get_where('admin', $where);
     }
     function login_guru($where){
-        //return $this->db->get_where('guru', $where);
-        $this->db->select('*');
+        // Retrieve the account by username only; password verification belongs in the controller.
+        $this->db->select('guru.*, mapel.mapel AS nama_mapel');
         $this->db->from('guru');
-        $this->db->join('mapel', 'guru.mapel=mapel.id_mapel');
+        $this->db->join('mapel', 'guru.mapel=mapel.id_mapel', 'left');
         $this->db->where($where);
         return $this->db->get();
     }
