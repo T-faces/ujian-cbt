@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS `ikut_ujian` (
   `list_soal` longtext DEFAULT NULL,
   `list_jawaban` longtext DEFAULT NULL,
   `jml_benar` int(11) DEFAULT NULL,
-  `nilai` int(11) DEFAULT NULL,
+  `nilai` decimal(5,2) DEFAULT NULL,
   `tgl_mulai` datetime DEFAULT NULL,
   `tgl_selesai` datetime DEFAULT NULL,
   `status` enum('Y','N') DEFAULT NULL,
