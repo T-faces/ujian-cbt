@@ -25,9 +25,11 @@ Dokumen ini menjelaskan instalasi awal repositori **ujian-cbt** pada lingkungan 
 
 ## 3. Login dan migrasi kata sandi
 
+Sebelum memasang perubahan branch ini pada database lama, buat backup lalu jalankan `docs/migrations/2026-10-25-password-hash.sql` agar kolom password dapat menampung hash. Untuk instalasi baru, skema `cbt.sql` sudah memakai `VARCHAR(255)`.
+
 Akun awal bergantung pada data yang ada di `cbt.sql`; jangan mengasumsikan kredensial contoh dari dokumentasi lama masih aman atau berlaku. Periksa isi SQL secara lokal dan segera ganti semua kata sandi contoh sebelum digunakan.
 
-Pada branch `feature/cbt-smart-exam-hardening`, alur login diperbarui agar kata sandi diverifikasi di aplikasi. Jika akun lama masih menyimpan kata sandi teks biasa, kode mencoba mengubahnya menjadi hash setelah login berhasil. Proses ini hanya terjadi untuk akun yang berhasil login; tetap lakukan reset kata sandi dan audit database sebelum produksi. Pastikan kolom `password` cukup panjang untuk hash modern (minimal VARCHAR(255)); periksa skema sebelum deployment.
+Pada branch `feature/cbt-smart-exam-hardening`, alur login admin, guru, dan siswa diperbarui agar kata sandi diverifikasi di aplikasi. Reset kata sandi siswa juga memerlukan verifikasi jawaban pemulihan yang disimpan dalam sesi server dengan masa berlaku lima menit. Jika akun lama masih menyimpan kata sandi teks biasa, kode mencoba mengubahnya menjadi hash setelah login berhasil. Proses ini hanya terjadi untuk akun yang berhasil login; tetap lakukan reset kata sandi dan audit database sebelum produksi. Pastikan kolom `password` cukup panjang untuk hash modern (minimal VARCHAR(255)); periksa skema sebelum deployment.
 
 ## 4. Konfigurasi sebelum digunakan
 
