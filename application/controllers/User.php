@@ -254,6 +254,14 @@ class User extends CI_Controller {
                return $this->j(array('status' => 'error', 'message' => 'Daftar soal kosong.'));
           }
 
+          $examMeta = $this->db->select('id_mapel')
+               ->get_where('ujian', array('id_ujian' => $attempt->id_ujian))
+               ->row();
+          if (!$examMeta) {
+               $this->db->trans_rollback();
+               return $this->j(array('status' => 'error', 'message' => 'Data ujian tidak valid.'));
+          }
+
           $answers = array();
           $correct = 0;
           foreach (array_values($allowedIds) as $index => $questionId) {
@@ -265,7 +273,7 @@ class User extends CI_Controller {
                }
 
                $question = $this->db->select('jawaban')
-                    ->get_where('soal', array('id_soal' => $questionId, 'mapel' => $this->db->select('id_mapel')->get_where('ujian', array('id_ujian' => $attempt->id_ujian))->row()->id_mapel))
+                    ->get_where('soal', array('id_soal' => $questionId, 'mapel' => $examMeta->id_mapel))
                     ->row();
 
                if (!$question) {
