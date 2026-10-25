@@ -2,8 +2,9 @@
 
 ## Perubahan pada branch ini
 
-- Login guru mencari akun berdasarkan nama pengguna, bukan dengan mencocokkan kata sandi pada query database.
-- Alur login admin dan guru memverifikasi hash kata sandi, dan mendukung migrasi akun lama dari teks biasa ke `password_hash()` setelah autentikasi berhasil.
+- Login guru dan siswa mencari akun berdasarkan identitas, bukan dengan mencocokkan kata sandi pada query database.
+- Alur login admin, guru, dan siswa memverifikasi hash kata sandi, dan mendukung migrasi akun lama dari teks biasa ke `password_hash()` setelah autentikasi berhasil.
+- Reset dan perubahan kata sandi siswa menyimpan hash; reset pemulihan memakai otorisasi sesi server yang kedaluwarsa setelah lima menit.
 - ID sesi dirotasi setelah login berhasil.
 - Permintaan login dibatasi ke metode POST dan nilai peran yang dikenali.
 - Pesan kegagalan login dibuat generik untuk mengurangi kebocoran informasi tentang keberadaan akun.
