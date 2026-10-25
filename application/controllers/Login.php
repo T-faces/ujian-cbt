@@ -129,7 +129,7 @@ class Login extends CI_Controller{
 		$nis = $this->input->post('nis');
 		$password = $this->input->post('password');
 		$where = ['nis' => $nis];
-		$data = ['password' => $password];
+		$data = ['password' => password_hash((string) $password, PASSWORD_DEFAULT)];
 		if($this->m_user->resetpasswd('siswa', $where, $data)){
 			echo 1;
 		}
