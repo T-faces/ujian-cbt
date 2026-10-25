@@ -23,7 +23,7 @@ class M_User extends CI_Model{
 	}
 	function resetpasswd($table, $where, $data){
 		$this->db->where($where);
-		$this->db->update($table, $data);
+		return $this->db->update($table, $data);
 	}
 
 	function cekdefpass($id){
