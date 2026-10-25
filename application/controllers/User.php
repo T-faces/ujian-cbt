@@ -331,18 +331,18 @@ class User extends CI_Controller {
      	$this->load->view('_template/footer');
      }
      function gantipass(){
-     	$password = $this->input->post('passLama');
-     	$passwordBaru = $this->input->post('konfirPass');
+     	$password = (string) $this->input->post('passLama');
+     	$passwordBaru = (string) $this->input->post('konfirPass');
 
      	$whr = ['id_siswa' => $this->session->id];
      	$cek = $this->m_user->cekpass($whr)->row_array();
-     	if ($password != $cek['password']) {
+     	if (empty($cek) || !$this->password_matches($password, $cek['password'])) {
      		# code...
      		$this->session->set_flashdata('repass', 'Password lama tidak cocok !');
      		redirect('setting');
      	}
      	else{
-     		$data = ['password' => $passwordBaru];
+     		$data = ['password' => password_hash($passwordBaru, PASSWORD_DEFAULT)];
      		$this->m_user->gantipass($data, $whr);
                $this->session->set_flashdata('repass', 'Password berhasil diubah');
                redirect('setting');
@@ -376,6 +376,18 @@ class User extends CI_Controller {
           }
       }
 
+
+      private function password_matches($plainPassword, $storedPassword)
+      {
+          if ($storedPassword === '') {
+               return FALSE;
+          }
+          $info = password_get_info($storedPassword);
+          if (!empty($info['algo'])) {
+               return password_verify($plainPassword, $storedPassword);
+          }
+          return hash_equals($storedPassword, $plainPassword);
+      }
 
       //Fungsi tambahan
       public function j($data){
