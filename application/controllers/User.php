@@ -214,8 +214,11 @@ class User extends CI_Controller {
           }
 
           $this->db->where(array('id_tes' => $id_tes, 'id_siswa' => $id_siswa, 'status' => 'Y'));
-          $this->db->update('ikut_ujian', array('list_jawaban' => implode(',', $submittedIds)));
-          return $this->j(array('status' => $this->db->affected_rows() >= 0 ? 'ok' : 'error'));
+          $saved = $this->db->update('ikut_ujian', array('list_jawaban' => implode(',', $submittedIds)));
+          if ($saved === FALSE) {
+               return $this->j(array('status' => 'error', 'message' => 'Jawaban gagal disimpan. Silakan coba lagi.'));
+          }
+          return $this->j(array('status' => 'ok'));
      }
 
      // Finalize exactly one active attempt; correct answers are read only on the server.
