@@ -25,7 +25,7 @@ Dokumen ini menjelaskan instalasi awal repositori **ujian-cbt** pada lingkungan 
 
 ## 3. Login dan migrasi kata sandi
 
-Sebelum memasang perubahan branch ini pada database lama, buat backup lalu jalankan `docs/migrations/2026-10-25-password-hash.sql` agar kolom password dapat menampung hash. Untuk instalasi baru, skema `cbt.sql` sudah memakai `VARCHAR(255)`.
+Sebelum memasang perubahan branch ini pada database lama, buat backup lalu jalankan `docs/migrations/2026-10-25-password-hash.sql`. Migrasi ini memperbesar kolom password agar dapat menampung hash dan mengubah `ikut_ujian.nilai` menjadi `DECIMAL(5,2)` agar skor dua desimal tidak terpotong. Untuk instalasi baru, skema `cbt.sql` sudah menggunakan `VARCHAR(255)` untuk password dan `DECIMAL(5,2)` untuk nilai.
 
 Akun awal bergantung pada data yang ada di `cbt.sql`; jangan mengasumsikan kredensial contoh dari dokumentasi lama masih aman atau berlaku. Periksa isi SQL secara lokal dan segera ganti semua kata sandi contoh sebelum digunakan.
 
