@@ -254,7 +254,7 @@ class User extends CI_Controller {
                return $this->j(array('status' => 'error', 'message' => 'Daftar soal kosong.'));
           }
 
-          $examMeta = $this->db->select('id_mapel')
+          $examMeta = $this->db->select('id_mapel, id_kelas')
                ->get_where('ujian', array('id_ujian' => $attempt->id_ujian))
                ->row();
           if (!$examMeta) {
@@ -285,7 +285,11 @@ class User extends CI_Controller {
                }
 
                $question = $this->db->select('jawaban')
-                    ->get_where('soal', array('id_soal' => $questionId, 'mapel' => $examMeta->id_mapel))
+                    ->get_where('soal', array(
+                         'id_soal' => $questionId,
+                         'mapel' => $examMeta->id_mapel,
+                         'kelas' => $examMeta->id_kelas
+                    ))
                     ->row();
 
                if (!$question) {
