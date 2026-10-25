@@ -17,28 +17,58 @@ class Login extends CI_Controller{
     }
 	
 	function actlogin(){
-		$nis = $this->input->post('nis');
-		$nis = preg_replace("/[^0-9]/", "", $nis);
-		$password = $this->input->post('password');
-		$data = ['nis' => $nis, 'password' => $password];
-		$siswa = $this->m_user->login($data);
-		if($siswa->num_rows() > 0) {
-			$s = $siswa->row_array();
-			$data = [
-				'id' => $s['id_siswa'],
-				'nama' => $s['nama'],
-				'nis' => $s['nis'],
-				'kelas' => $s['kode_kelas'],
-				'login' => true
-			];
-			$this->session->set_userdata($data);
-			redirect('');
+		if (strtoupper($this->input->method(TRUE)) !== 'POST') {
+			show_error('Metode permintaan tidak diizinkan.', 405);
+			return;
 		}
-		else{
+		$nis = preg_replace("/[^0-9]/", "", (string) $this->input->post('nis', TRUE));
+		$password = (string) $this->input->post('password');
+		if ($nis === '' || $password === '') {
 			$this->session->set_flashdata('flash', 'NIS atau Password salah !');
 			redirect('login');
+			return;
 		}
 
+		$siswa = $this->m_user->login(array('nis' => $nis));
+		$s = $siswa->row_array();
+		if (!$s || !$this->password_matches($password, isset($s['password']) ? $s['password'] : '')) {
+			$this->session->set_flashdata('flash', 'NIS atau Password salah !');
+			redirect('login');
+			return;
+		}
+
+		// Upgrade legacy plaintext credentials after a successful login.
+		$info = password_get_info($s['password']);
+		if (empty($info['algo'])) {
+			$this->m_user->gantipass(
+				array('password' => password_hash($password, PASSWORD_DEFAULT)),
+				array('id_siswa' => $s['id_siswa'])
+			);
+		}
+
+		if (method_exists($this->session, 'sess_regenerate')) {
+			$this->session->sess_regenerate(TRUE);
+		}
+		$this->session->set_userdata(array(
+			'id' => $s['id_siswa'],
+			'nama' => $s['nama'],
+			'nis' => $s['nis'],
+			'kelas' => $s['kode_kelas'],
+			'login' => true
+		));
+		redirect('');
+	}
+
+	private function password_matches($plainPassword, $storedPassword)
+	{
+		if ($storedPassword === '') {
+			return FALSE;
+		}
+		$info = password_get_info($storedPassword);
+		if (!empty($info['algo'])) {
+			return password_verify($plainPassword, $storedPassword);
+		}
+		return hash_equals($storedPassword, $plainPassword);
 	}
 
 	function logout(){
