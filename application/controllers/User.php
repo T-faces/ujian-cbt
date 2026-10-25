@@ -262,11 +262,23 @@ class User extends CI_Controller {
                return $this->j(array('status' => 'error', 'message' => 'Data ujian tidak valid.'));
           }
 
+          $expired = strtotime($attempt->tgl_selesai) < time();
+          $savedAnswers = array();
+          foreach (explode(',', (string) $attempt->list_jawaban) as $savedPair) {
+               $parts = explode(':', $savedPair, 2);
+               if (count($parts) === 2) {
+                    $savedAnswers[(int) $parts[0]] = strtoupper(trim($parts[1]));
+               }
+          }
+
           $answers = array();
           $correct = 0;
           foreach (array_values($allowedIds) as $index => $questionId) {
                $field = 'opsi_' . ($index + 1);
-               $answer = isset($payload[$field]) ? strtoupper(trim((string) $payload[$field])) : '';
+               // Once the server deadline passes, grade only answers already saved on the server.
+               $answer = $expired
+                    ? (isset($savedAnswers[$questionId]) ? $savedAnswers[$questionId] : '')
+                    : (isset($payload[$field]) ? strtoupper(trim((string) $payload[$field])) : '');
                if ($answer !== '' && !in_array($answer, array('A', 'B', 'C', 'D', 'E'), TRUE)) {
                     $this->db->trans_rollback();
                     return $this->j(array('status' => 'error', 'message' => 'Pilihan jawaban tidak valid.'));
