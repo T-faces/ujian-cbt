@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS `admin` (
   `id_admin` int(11) NOT NULL AUTO_INCREMENT,
   `nama` varchar(50) DEFAULT NULL,
   `username` varchar(20) DEFAULT NULL,
-  `password` varchar(60) DEFAULT NULL,
+  `password` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id_admin`)
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=latin1;
 
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS `guru` (
   `nama` varchar(50) NOT NULL,
   `mapel` int(11) NOT NULL,
   `username` varchar(20) NOT NULL,
-  `password` varchar(32) NOT NULL,
+  `password` varchar(255) NOT NULL,
   PRIMARY KEY (`id_guru`),
   KEY `mapel` (`mapel`),
   CONSTRAINT `guru_ibfk_1` FOREIGN KEY (`mapel`) REFERENCES `mapel` (`id_mapel`)
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS `ikut_ujian` (
   `list_soal` longtext DEFAULT NULL,
   `list_jawaban` longtext DEFAULT NULL,
   `jml_benar` int(11) DEFAULT NULL,
-  `nilai` int(11) DEFAULT NULL,
+  `nilai` decimal(5,2) DEFAULT NULL,
   `tgl_mulai` datetime DEFAULT NULL,
   `tgl_selesai` datetime DEFAULT NULL,
   `status` enum('Y','N') DEFAULT NULL,
@@ -130,7 +130,7 @@ CREATE TABLE IF NOT EXISTS `siswa` (
   `nama` varchar(50) NOT NULL,
   `nis` int(11) NOT NULL,
   `kelas` int(11) NOT NULL,
-  `password` varchar(32) NOT NULL,
+  `password` varchar(255) NOT NULL,
   `nohp` char(12) NOT NULL,
   `pertanyaan` varchar(50) NOT NULL,
   `jawaban` varchar(50) NOT NULL,

@@ -106,8 +106,8 @@ $jam_selesai_pc = explode(" ", $detil_tes->tgl_selesai);
 						alert('Waktu telah selesai !');
 						var f_asal = $('#_form');
 						var form = getFormData(f_asal);
-						simpan_akhir(<?=$detil_tes->id_tes;?>);
-						window.location.assign("<?=base_url();?>selesai/<?=$detil_tes->id_tes;?>");
+						simpan_akhir(<?=$detil_tes->id_tes;?>, true);
+						// Navigation occurs only after the server confirms finalization.
 
 						return false;
 					});
@@ -178,8 +178,8 @@ $jam_selesai_pc = explode(" ", $detil_tes->tgl_selesai);
 				return false;
 			}
 
-			simpan_akhir = function(id){
-				if (confirm('Anda yakin akan mengakhiri ujian ini ?')) {
+			simpan_akhir = function(id, paksa){
+				if (paksa || confirm('Anda yakin akan mengakhiri ujian ini ?')) {
 					var f_asal = $('#_form');
 					var form = getFormData(f_asal);
 

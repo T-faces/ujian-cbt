@@ -5,11 +5,11 @@ defined('BASEPATH') OR exit('No direct script access allowed');
  * 
  */
 class M_User extends CI_Model{
-	function login($data){
-		$this->db->select('siswa.id_siswa, siswa.nama, siswa.nis, siswa.kelas, kelas.*');
+	function login($where){
+		$this->db->select('siswa.id_siswa, siswa.nama, siswa.nis, siswa.kelas, siswa.password, kelas.*');
 		$this->db->from('siswa');
 		$this->db->join('kelas', 'siswa.kelas=kelas.id_kelas');
-		$this->db->where($data);
+		$this->db->where($where);
 		return $this->db->get();
 	}
 	
@@ -23,7 +23,7 @@ class M_User extends CI_Model{
 	}
 	function resetpasswd($table, $where, $data){
 		$this->db->where($where);
-		$this->db->update($table, $data);
+		return $this->db->update($table, $data);
 	}
 
 	function cekdefpass($id){

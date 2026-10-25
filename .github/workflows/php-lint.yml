@@ -1,0 +1,39 @@
+name: PHP syntax check
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master, "feature/**"]
+
+jobs:
+  php-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up PHP 7.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "7.4"
+          coverage: none
+
+      - name: Lint changed PHP files
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+          HEAD="${{ github.sha }}"
+          FILES="$(git diff --name-only "$BASE" "$HEAD" -- '*.php' || true)"
+          if [[ -z "$FILES" ]]; then
+            echo "No changed PHP files to lint."
+            exit 0
+          fi
+          while IFS= read -r file; do
+            [[ -f "$file" ]] || continue
+            echo "Checking $file"
+            php -l "$file"
+          done <<< "$FILES"

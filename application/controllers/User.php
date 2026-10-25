@@ -140,7 +140,10 @@ class User extends CI_Controller {
                          $pc_urut_soal = explode(":", $urut_soal[$i]);
                          $pc_urut_soal1 = empty($pc_urut_soal[1]) ? "''" : "'".$pc_urut_soal[1]."'";
 
-                         $ambil_soal = $this->db->query('SELECT *, '.$pc_urut_soal1.' AS jawaban FROM soal WHERE id_soal = '.$pc_urut_soal[0].'')->row();
+                         $ambil_soal = $this->db->query(
+                              'SELECT id_soal, mapel, kelas, guru, soal, media, opsi_a, opsi_b, opsi_c, opsi_d, opsi_e, ? AS jawaban FROM soal WHERE id_soal = ?',
+                              array(trim($pc_urut_soal[1], "'"), (int) $pc_urut_soal[0])
+                         )->row();
                          $soal_urut_ok[] = $ambil_soal;
                     }
 
@@ -164,49 +167,160 @@ class User extends CI_Controller {
           }
      }
 
-     //fungsi proses ujian
-     function ujian_simpan($id_tes){
-          $id_siswa = $this->session->id;
-          $p = json_decode(file_get_contents('php://input'));
-          $update_ = '';
-          for ($i=1; $i < $p->jml_soal; $i++) { 
-               # code...
-               $_tjawab = 'opsi_'.$i;
-               $_tidsoal = 'id_soal_'.$i;
-               $jawaban_ = empty($p->$_tjawab) ? '' : $p->$_tjawab;
-               $update_ .= ''.$p->$_tidsoal.':'.$jawaban_.',';
+     // Save answers on the server; the database deadline and attempt ownership are authoritative.
+     public function ujian_simpan($id_tes)
+     {
+          if (strtoupper($this->input->method(TRUE)) !== 'POST') {
+               return $this->j(array('status' => 'error', 'message' => 'Metode tidak diizinkan.'));
           }
-          $update_ = substr($update_, 0, -1);
 
-          $this->db->query("UPDATE ikut_ujian SET list_jawaban='".$update_."' WHERE id_tes='$id_tes' AND id_siswa='$id_siswa'");
-          echo $this->db->last_query();
-          exit;
-     }
-     function ujian_akhir($id_tes){
-          $id_siswa = $this->session->id;
-          $p = json_decode(file_get_contents('php://input'));
-          $jumlah_soal = $p->jml_soal;
-          $jumlah_benar = 0;
-          $update_ = '';
+          $id_tes = (int) $id_tes;
+          $id_siswa = (int) $this->session->userdata('id');
+          $payload = json_decode(file_get_contents('php://input'), TRUE);
+          if (!is_array($payload)) {
+               return $this->j(array('status' => 'error', 'message' => 'Data jawaban tidak valid.'));
+          }
 
-          for ($i=1; $i < $p->jml_soal; $i++) { 
-               # code...
-               $_tjawab = 'opsi_'.$i;
-               $_tidsoal = 'id_soal_'.$i;
-               $jawaban_ = empty($p->$_tjawab) ? '' : $p->$_tjawab;
-               $cek_jwb = $this->db->query("SELECT jawaban FROM soal WHERE id_soal='".$p->$_tidsoal."'")->row();
-               if ($cek_jwb->jawaban == $jawaban_) {
-                    $jumlah_benar++;
+          $attempt = $this->db->get_where('ikut_ujian', array(
+               'id_tes' => $id_tes,
+               'id_siswa' => $id_siswa
+          ))->row();
+
+          if (!$attempt || $attempt->status !== 'Y') {
+               return $this->j(array('status' => 'error', 'message' => 'Percobaan ujian tidak aktif.'));
+          }
+
+          if (strtotime($attempt->tgl_selesai) < time()) {
+               return $this->j(array('status' => 'expired', 'message' => 'Waktu ujian telah berakhir.'));
+          }
+
+          $allowedIds = array_filter(array_map('intval', explode(',', (string) $attempt->list_soal)));
+          if (empty($allowedIds)) {
+               return $this->j(array('status' => 'error', 'message' => 'Daftar soal kosong.'));
+          }
+
+          $submittedIds = array();
+          foreach ($allowedIds as $index => $questionId) {
+               $field = 'id_soal_' . ($index + 1);
+               if (isset($payload[$field]) && (int) $payload[$field] !== $questionId) {
+                    return $this->j(array('status' => 'error', 'message' => 'Urutan soal tidak sesuai percobaan ini.'));
                }
-               $update_ .= ''.$p->$_tidsoal.':'.$jawaban_.',';
+               $answerField = 'opsi_' . ($index + 1);
+               $answer = isset($payload[$answerField]) ? strtoupper(trim((string) $payload[$answerField])) : '';
+               if ($answer !== '' && !in_array($answer, array('A', 'B', 'C', 'D', 'E'), TRUE)) {
+                    return $this->j(array('status' => 'error', 'message' => 'Pilihan jawaban tidak valid.'));
+               }
+               $submittedIds[] = $questionId . ':' . $answer;
           }
-          $update_ = substr($update_, 0, -1);
 
-          $nilai = ($jumlah_benar/($jumlah_soal-1)) * 100;
-          $this->db->query("UPDATE ikut_ujian SET jml_benar=".$jumlah_benar.", nilai='".$nilai."', list_jawaban='".$update_."', status='N' WHERE id_tes='$id_tes' AND id_siswa='$id_siswa'");
-          $a['status'] = 'ok';
-          $this->j($a);
-          exit;
+          $this->db->where(array('id_tes' => $id_tes, 'id_siswa' => $id_siswa, 'status' => 'Y'));
+          $saved = $this->db->update('ikut_ujian', array('list_jawaban' => implode(',', $submittedIds)));
+          if ($saved === FALSE) {
+               return $this->j(array('status' => 'error', 'message' => 'Jawaban gagal disimpan. Silakan coba lagi.'));
+          }
+          return $this->j(array('status' => 'ok'));
+     }
+
+     // Finalize exactly one active attempt; correct answers are read only on the server.
+     public function ujian_akhir($id_tes)
+     {
+          if (strtoupper($this->input->method(TRUE)) !== 'POST') {
+               return $this->j(array('status' => 'error', 'message' => 'Metode tidak diizinkan.'));
+          }
+
+          $id_tes = (int) $id_tes;
+          $id_siswa = (int) $this->session->userdata('id');
+          $payload = json_decode(file_get_contents('php://input'), TRUE);
+          if (!is_array($payload)) {
+               return $this->j(array('status' => 'error', 'message' => 'Data jawaban tidak valid.'));
+          }
+
+          $this->db->trans_begin();
+          $attempt = $this->db->query(
+               'SELECT * FROM ikut_ujian WHERE id_tes = ? AND id_siswa = ? FOR UPDATE',
+               array($id_tes, $id_siswa)
+          )->row();
+
+          if (!$attempt) {
+               $this->db->trans_rollback();
+               return $this->j(array('status' => 'error', 'message' => 'Percobaan ujian tidak ditemukan.'));
+          }
+
+          if ($attempt->status !== 'Y') {
+               $this->db->trans_rollback();
+               return $this->j(array('status' => 'ok', 'message' => 'Ujian sudah diselesaikan.'));
+          }
+
+          $allowedIds = array_filter(array_map('intval', explode(',', (string) $attempt->list_soal)));
+          if (empty($allowedIds)) {
+               $this->db->trans_rollback();
+               return $this->j(array('status' => 'error', 'message' => 'Daftar soal kosong.'));
+          }
+
+          $examMeta = $this->db->select('id_mapel, id_kelas')
+               ->get_where('ujian', array('id_ujian' => $attempt->id_ujian))
+               ->row();
+          if (!$examMeta) {
+               $this->db->trans_rollback();
+               return $this->j(array('status' => 'error', 'message' => 'Data ujian tidak valid.'));
+          }
+
+          $expired = strtotime($attempt->tgl_selesai) < time();
+          $savedAnswers = array();
+          foreach (explode(',', (string) $attempt->list_jawaban) as $savedPair) {
+               $parts = explode(':', $savedPair, 2);
+               if (count($parts) === 2) {
+                    $savedAnswers[(int) $parts[0]] = strtoupper(trim($parts[1]));
+               }
+          }
+
+          $answers = array();
+          $correct = 0;
+          foreach (array_values($allowedIds) as $index => $questionId) {
+               $field = 'opsi_' . ($index + 1);
+               // Once the server deadline passes, grade only answers already saved on the server.
+               $answer = $expired
+                    ? (isset($savedAnswers[$questionId]) ? $savedAnswers[$questionId] : '')
+                    : (isset($payload[$field]) ? strtoupper(trim((string) $payload[$field])) : '');
+               if ($answer !== '' && !in_array($answer, array('A', 'B', 'C', 'D', 'E'), TRUE)) {
+                    $this->db->trans_rollback();
+                    return $this->j(array('status' => 'error', 'message' => 'Pilihan jawaban tidak valid.'));
+               }
+
+               $question = $this->db->select('jawaban')
+                    ->get_where('soal', array(
+                         'id_soal' => $questionId,
+                         'mapel' => $examMeta->id_mapel,
+                         'kelas' => $examMeta->id_kelas
+                    ))
+                    ->row();
+
+               if (!$question) {
+                    $this->db->trans_rollback();
+                    return $this->j(array('status' => 'error', 'message' => 'Soal percobaan tidak valid.'));
+               }
+
+               if ($answer !== '' && strtoupper((string) $question->jawaban) === $answer) {
+                    $correct++;
+               }
+               $answers[] = $questionId . ':' . $answer;
+          }
+
+          $score = round(($correct / count($allowedIds)) * 100, 2);
+          $this->db->where(array('id_tes' => $id_tes, 'id_siswa' => $id_siswa, 'status' => 'Y'));
+          $this->db->update('ikut_ujian', array(
+               'jml_benar' => $correct,
+               'nilai' => $score,
+               'list_jawaban' => implode(',', $answers),
+               'status' => 'N'
+          ));
+
+          if ($this->db->trans_status() === FALSE) {
+               $this->db->trans_rollback();
+               return $this->j(array('status' => 'error', 'message' => 'Gagal menyimpan hasil ujian.'));
+          }
+          $this->db->trans_commit();
+          return $this->j(array('status' => 'ok', 'nilai' => $score, 'jml_benar' => $correct));
      }
 
      public function ujian_selesai($id_tes){
@@ -236,18 +350,18 @@ class User extends CI_Controller {
      	$this->load->view('_template/footer');
      }
      function gantipass(){
-     	$password = $this->input->post('passLama');
-     	$passwordBaru = $this->input->post('konfirPass');
+     	$password = (string) $this->input->post('passLama');
+     	$passwordBaru = (string) $this->input->post('konfirPass');
 
      	$whr = ['id_siswa' => $this->session->id];
      	$cek = $this->m_user->cekpass($whr)->row_array();
-     	if ($password != $cek['password']) {
+     	if (empty($cek) || !$this->password_matches($password, $cek['password'])) {
      		# code...
      		$this->session->set_flashdata('repass', 'Password lama tidak cocok !');
      		redirect('setting');
      	}
      	else{
-     		$data = ['password' => $passwordBaru];
+     		$data = ['password' => password_hash($passwordBaru, PASSWORD_DEFAULT)];
      		$this->m_user->gantipass($data, $whr);
                $this->session->set_flashdata('repass', 'Password berhasil diubah');
                redirect('setting');
@@ -281,6 +395,18 @@ class User extends CI_Controller {
           }
       }
 
+
+      private function password_matches($plainPassword, $storedPassword)
+      {
+          if ($storedPassword === '') {
+               return FALSE;
+          }
+          $info = password_get_info($storedPassword);
+          if (!empty($info['algo'])) {
+               return password_verify($plainPassword, $storedPassword);
+          }
+          return hash_equals($storedPassword, $plainPassword);
+      }
 
       //Fungsi tambahan
       public function j($data){
