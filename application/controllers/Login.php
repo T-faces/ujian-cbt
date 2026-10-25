@@ -112,28 +112,56 @@ class Login extends CI_Controller{
 	}
 	//cek jawaban
 	function cekjawab(){
-		$jawaban = $this->input->post('jawaban');
-		$nis = $this->input->post('nis');
-		$whr = ['nis' => $nis];
-		$cek = $this->m_user->cekjawab($whr)->row_array();
-		if ($jawaban != $cek['jawaban']) {
-			# code...
-			echo 0;
+		if (strtoupper($this->input->method(TRUE)) !== 'POST') {
+			show_error('Metode permintaan tidak diizinkan.', 405);
+			return;
 		}
-		else{
-			echo json_encode($cek);
+		$jawaban = trim((string) $this->input->post('jawaban', TRUE));
+		$nis = preg_replace("/[^0-9]/", "", (string) $this->input->post('nis', TRUE));
+		$cek = $this->m_user->cekjawab(array('nis' => $nis))->row_array();
+		if (!$cek || !hash_equals((string) $cek['jawaban'], $jawaban) || $jawaban === '') {
+			echo '0';
+			return;
 		}
+
+		// Authorize one short-lived reset for this exact student; never return the stored answer.
+		$this->session->set_userdata(array(
+			'password_reset_nis' => $nis,
+			'password_reset_at' => time()
+		));
+		header('Content-Type: application/json');
+		echo json_encode(array('nis' => $nis, 'verified' => TRUE));
 	}
-	//Reset password
+
+	// Reset only after the server verified the recovery answer in this session.
 	function resetpasswd(){
-		$nis = $this->input->post('nis');
-		$password = $this->input->post('password');
-		$where = ['nis' => $nis];
-		$data = ['password' => password_hash((string) $password, PASSWORD_DEFAULT)];
-		if($this->m_user->resetpasswd('siswa', $where, $data)){
-			echo 1;
+		if (strtoupper($this->input->method(TRUE)) !== 'POST') {
+			show_error('Metode permintaan tidak diizinkan.', 405);
+			return;
 		}
-		$this->session->set_flashdata('flash', 'Password berhasil diubah, silahkan login !');
+		$nis = preg_replace("/[^0-9]/", "", (string) $this->input->post('nis', TRUE));
+		$password = (string) $this->input->post('password');
+		$repassword = (string) $this->input->post('repassword');
+		$authorizedNis = (string) $this->session->userdata('password_reset_nis');
+		$authorizedAt = (int) $this->session->userdata('password_reset_at');
+
+		if ($authorizedNis === '' || !hash_equals($authorizedNis, $nis) || $authorizedAt < 1 || (time() - $authorizedAt) > 300) {
+			$this->session->unset_userdata(array('password_reset_nis', 'password_reset_at'));
+			$this->session->set_flashdata('flash', 'Verifikasi reset kata sandi kedaluwarsa. Silakan ulangi proses.');
+			redirect('login');
+			return;
+		}
+		if (strlen($password) < 8 || !hash_equals($password, $repassword)) {
+			$this->session->set_flashdata('flash', 'Kata sandi minimal 8 karakter dan harus sama dengan konfirmasi.');
+			redirect('login');
+			return;
+		}
+
+		$updated = $this->m_user->resetpasswd('siswa', array('nis' => $nis), array(
+			'password' => password_hash($password, PASSWORD_DEFAULT)
+		));
+		$this->session->unset_userdata(array('password_reset_nis', 'password_reset_at'));
+		$this->session->set_flashdata('flash', $updated ? 'Password berhasil diubah, silakan login.' : 'Password gagal diubah. Silakan coba lagi.');
 		redirect('login');
 	}
 }
